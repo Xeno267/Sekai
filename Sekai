@@ -1,0 +1,312 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "🔥Sekai",
+    LoadingTitle = "Sekai Hub",
+    LoadingSubtitle = "by 1_FO",
+    ShowText = "Rayfield",
+    Theme = "Default",
+    ToggleUIKeybind = "K",
+
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = nil,
+        FileName = "Big Hub"
+    },
+
+    Discord = {
+        Enabled = false,
+        Invite = "vegax",
+        RememberJoins = true
+    },
+
+    KeySystem = true,
+    KeySettings = {
+        Title = "Sekai Hub | Key",
+        Subtitle = "Link In Discord Server",
+        Note = "Join Server From Misc Tab",
+        FileName = "sekaihubkey",
+        SaveKey = true,
+        GrabKeyFromSite = true,
+        Key = {"https://pastebin.com/raw/hYxdsVFT"}
+    }
+})
+
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- Main Tab
+local MainTab = Window:CreateTab("🏡 Home", nil)
+MainTab:CreateSection("Main Features")
+
+-- Notify on execute
+Rayfield:Notify({
+    Title = "You Executed The Script",
+    Content = "Very good gui",
+    Duration = 5,
+    Actions = {
+        Ignore = { Name = "Okey", Callback = function() end }
+    }
+})
+
+-- Infinite Jump Toggle
+local infiniteJump = false
+local jumpConnection
+
+MainTab:CreateButton({
+    Name = "Toggle Infinite Jump",
+    Callback = function()
+        infiniteJump = not infiniteJump
+
+        if infiniteJump then
+            jumpConnection = UIS.JumpRequest:Connect(function()
+                local character = player.Character or player.CharacterAdded:Wait()
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end)
+        else
+            if jumpConnection then
+                jumpConnection:Disconnect()
+                jumpConnection = nil
+            end
+        end
+
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Sekai Hub",
+            Text = "Infinite Jump " .. (infiniteJump and "ON" or "OFF"),
+            Duration = 5
+        })
+    end
+})
+
+-- WalkSpeed Slider
+local function setSpeed(value)
+    if player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = value
+        end
+    end
+end
+
+MainTab:CreateSlider({
+    Name = "WalkSpeed",
+    Range = {0, 300},
+    Increment = 1,
+    Suffix = "Speed",
+    CurrentValue = 16,
+    Flag = "Slider1",
+    Callback = function(value)
+        setSpeed(value)
+    end
+})
+
+-- Reset WalkSpeed on respawn
+player.CharacterAdded:Connect(function()
+    setSpeed(16)
+end)
+
+-- JumpPower Toggle (130 ON / 50 OFF)
+local jumpPowerOn = false
+
+MainTab:CreateButton({
+    Name = "Toggle JumpPower 130",
+    Callback = function()
+        jumpPowerOn = not jumpPowerOn
+
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+        if humanoid then
+            humanoid.JumpPower = jumpPowerOn and 130 or 50
+        end
+
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Sekai Hub",
+            Text = "JumpPower " .. (jumpPowerOn and "130 (ON)" or "50 (OFF)"),
+            Duration = 4
+        })
+    end
+})
+
+-- ===== ESP Section =====
+local ESP = {}
+ESP.Enabled = false
+ESP.Boxes = {}
+ESP.Tracers = {}
+ESP.Names = {}
+ESP.Connections = {}
+
+local function safeNewDrawing(className)
+    local success, result = pcall(function()
+        return Drawing.new(className)
+    end)
+    if success then
+        return result
+    else
+        return nil
+    end
+end
+
+local function CreateESP(plr)
+    local char = plr.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local head = char:FindFirstChild("Head")
+    if not hrp or not head then return end
+
+    local box = safeNewDrawing("Square")
+    local tracer = safeNewDrawing("Line")
+    local name = safeNewDrawing("Text")
+    if not (box and tracer and name) then return end
+
+    box.Visible = false
+    box.Color = Color3.new(1, 0, 0)
+    box.Thickness = 2
+    box.Filled = false
+    box.Transparency = 0.75
+
+    tracer.Visible = false
+    tracer.Color = Color3.new(1, 1, 0)
+    tracer.Thickness = 1
+    tracer.Transparency = 0.75
+
+    name.Visible = false
+    name.Color = Color3.new(0, 1, 0)
+    name.Size = 16
+    name.Center = true
+    name.Outline = true
+    name.Font = 2
+
+    ESP.Boxes[plr] = box
+    ESP.Tracers[plr] = tracer
+    ESP.Names[plr] = name
+end
+
+local function RemoveESP(plr)
+    if ESP.Boxes[plr] then
+        ESP.Boxes[plr]:Remove()
+        ESP.Boxes[plr] = nil
+    end
+    if ESP.Tracers[plr] then
+        ESP.Tracers[plr]:Remove()
+        ESP.Tracers[plr] = nil
+    end
+    if ESP.Names[plr] then
+        ESP.Names[plr]:Remove()
+        ESP.Names[plr] = nil
+    end
+end
+
+local function UpdateESP()
+    if not ESP.Enabled then return end
+    for plr, box in pairs(ESP.Boxes) do
+        local char = plr.Character
+        if char and plr ~= player then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local head = char:FindFirstChild("Head")
+            if hrp and head then
+                local rootPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+                local headPos, headOnScreen = camera:WorldToViewportPoint(head.Position)
+                if onScreen and headOnScreen and rootPos.Z > 0 then
+                    local size = math.clamp(1500 / rootPos.Z, 20, 300)
+                    local boxSize = size * 1.2
+                    local x, y = rootPos.X, rootPos.Y
+
+                    box.Visible = true
+                    box.Size = boxSize
+                    box.Position = Vector2.new(x - boxSize / 2, y - boxSize / 2)
+                    box.Color = Color3.new(1, 0, 0)
+
+                    local screenSize = workspace.CurrentCamera.ViewportSize
+                    ESP.Tracers[plr].Visible = true
+                    ESP.Tracers[plr].From = Vector2.new(screenSize.X / 2, screenSize.Y * 0.9)
+                    ESP.Tracers[plr].To = Vector2.new(x, y)
+                    ESP.Tracers[plr].Color = Color3.new(1, 1, 0)
+
+                    ESP.Names[plr].Visible = true
+                    ESP.Names[plr].Position = Vector2.new(x, y - boxSize / 2 - 20)
+                    ESP.Names[plr].Text = plr.Name .. " [" .. math.floor((hrp.Position - player.Character.HumanoidRootPart.Position).Magnitude) .. "m]"
+                    ESP.Names[plr].Color = Color3.new(0, 1, 0)
+                else
+                    box.Visible = false
+                    ESP.Tracers[plr].Visible = false
+                    ESP.Names[plr].Visible = false
+                end
+            else
+                box.Visible = false
+                ESP.Tracers[plr].Visible = false
+                ESP.Names[plr].Visible = false
+            end
+        else
+            box.Visible = false
+            ESP.Tracers[plr].Visible = false
+            ESP.Names[plr].Visible = false
+        end
+    end
+end
+
+local function EnableESP()
+    ESP.Enabled = true
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player then
+            CreateESP(plr)
+        end
+    end
+
+    ESP.Connections.PlayerAdded = Players.PlayerAdded:Connect(function(plr)
+        if plr ~= player then
+            CreateESP(plr)
+        end
+    end)
+
+    ESP.Connections.PlayerRemoving = Players.PlayerRemoving:Connect(function(plr)
+        RemoveESP(plr)
+    end)
+
+    ESP.Connections.RenderStepped = RunService.RenderStepped:Connect(UpdateESP)
+end
+
+local function DisableESP()
+    ESP.Enabled = false
+    for plr, _ in pairs(ESP.Boxes) do
+        RemoveESP(plr)
+    end
+
+    if ESP.Connections.PlayerAdded then
+        ESP.Connections.PlayerAdded:Disconnect()
+        ESP.Connections.PlayerAdded = nil
+    end
+    if ESP.Connections.PlayerRemoving then
+        ESP.Connections.PlayerRemoving:Disconnect()
+        ESP.Connections.PlayerRemoving = nil
+    end
+    if ESP.Connections.RenderStepped then
+        ESP.Connections.RenderStepped:Disconnect()
+        ESP.Connections.RenderStepped = nil
+    end
+end
+
+local function ToggleESP()
+    if ESP.Enabled then
+        DisableESP()
+    else
+        EnableESP()
+    end
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "Sekai Hub",
+        Text = "ESP " .. (ESP.Enabled and "ON" or "OFF"),
+        Duration = 4
+    })
+end
+
+-- ESP товчийг нэмэх
+MainTab:CreateButton({
+    Name = "Toggle Ultra PRO ESP",
+    Callback = ToggleESP
+})
